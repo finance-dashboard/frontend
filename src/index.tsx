@@ -1,13 +1,16 @@
-import React from 'react'
 import ReactDOM from 'react-dom'
 import 'normalize.css'
+import '@fontsource/clear-sans'
+import 'bootstrap/dist/css/bootstrap.min.css'
+import 'bootstrap-icons/font/bootstrap-icons.css'
 import './index.css'
-import App from './App'
+import { App } from './App'
 import reportWebVitals from './reportWebVitals'
+import React from 'react'
 
 ReactDOM.render(
   <React.StrictMode>
-    <App />
+    <App/>
   </React.StrictMode>,
   document.getElementById('root')
 )
