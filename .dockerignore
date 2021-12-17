@@ -1,0 +1,13 @@
+.vs/
+.vscode/
+.idea/
+
+node_modules/
+dist/
+
+.env
+.editorconfig
+.eslintrc.js
+.prettierrc
+README.md
+Makefile
