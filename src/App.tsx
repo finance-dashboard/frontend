@@ -1,12 +1,14 @@
 import Col from 'react-bootstrap/Col'
 import Container from 'react-bootstrap/Container'
 import Card from 'react-bootstrap/Card'
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import useWebSocket from 'react-use-websocket'
 import styled from 'styled-components'
 import moment from 'moment'
 import Row from 'react-bootstrap/Row'
 import ListGroup from 'react-bootstrap/ListGroup'
+import ToastContainer from 'react-bootstrap/ToastContainer'
+import Toast from 'react-bootstrap/Toast'
 
 const H1 = styled.h1`
   margin: 0;
@@ -58,30 +60,55 @@ const AssetCard = ({ asset }: { asset: Asset }) => {
   const { time, name, ticker, cost } = asset
   return (
     <Card as={'article'} className='h-100'>
-      <Card.Header>
-        {ticker}
-      </Card.Header>
+      <Card.Header>{ticker}</Card.Header>
       <Card.Body>
         <Card.Title>{name}</Card.Title>
-        <Card.Text>
-        </Card.Text>
       </Card.Body>
-      <ListGroup variant="flush">
-        <ListGroup.Item className='text-success'>Buy: {cost.high.toFixed(2)} {cost.currency}</ListGroup.Item>
-        <ListGroup.Item className='text-danger'>Sell: {cost.low.toFixed(2)} {cost.currency}</ListGroup.Item>
+      <ListGroup variant='flush'>
+        <ListGroup.Item className='text-success'>
+          Buy: {cost.high.toFixed(2)} {cost.currency}
+        </ListGroup.Item>
+        <ListGroup.Item className='text-danger'>
+          Sell: {cost.low.toFixed(2)} {cost.currency}
+        </ListGroup.Item>
       </ListGroup>
       <Card.Footer>
-        <div className="text-muted">{moment(time).fromNow()}</div>
+        <div className='text-muted'>{moment(time).fromNow()}</div>
       </Card.Footer>
     </Card>
   )
 }
 
-const ProviderSection = ({ provider }: { provider: Provider }) => {
+const ProviderSection = ({
+  provider,
+  onError = () => ({})
+}: {
+  provider: Provider
+  onError?: (message: Message) => void
+}) => {
   const { name, url } = provider
   const assets = useRef(new Map<string, Asset>())
 
-  const { lastJsonMessage } = useWebSocket(url)
+  const { lastJsonMessage } = useWebSocket(url, {
+    onOpen: () => onError({ id: Math.random(), level: 'success', text: `Connected to ${provider.name}` }),
+    onError: () => onError({ id: Math.random(), level: 'danger', text: `Error connecting to ${provider.name}` }),
+    onClose: () =>
+      onError({
+        id: Math.random(),
+        level: 'warning',
+        text: `Connection to ${provider.name} was closed. Trying to reconnect`
+      }),
+    onReconnectStop: numAttempts =>
+      onError({
+        id: Math.random(),
+        level: 'danger',
+        text: `Tried to reconnect ${numAttempts} times. Won't repeat`
+      }),
+    shouldReconnect: () => true,
+    reconnectAttempts: 20,
+    reconnectInterval: 5000,
+    retryOnError: true
+  })
   if (lastJsonMessage) {
     const asset = lastJsonMessage as Asset
     assets.current.set(asset.ticker, asset)
@@ -90,21 +117,30 @@ const ProviderSection = ({ provider }: { provider: Provider }) => {
   return (
     <Container as={'article'} className='pt-2 pb-2'>
       <H2>{name}</H2>
-      {assets.current.size === 0
-        ? <p>Loading assets...</p>
-        : <Row className="mt-2" xs={1} sm={2} md={4} lg={6} xl={12}>
+      {assets.current.size === 0 ? (
+        <p>Loading assets...</p>
+      ) : (
+        <Row className='mt-2' xs={1} sm={2} md={4} lg={6} xl={12}>
           {Array.from(assets.current.values()).map(_ => (
-            <Col key={_.ticker} className="p-2">
-              <AssetCard asset={_}/>
+            <Col key={_.ticker} className='p-2'>
+              <AssetCard asset={_} />
             </Col>
           ))}
         </Row>
-      }
+      )}
     </Container>
   )
 }
 
+type Message = {
+  id: number
+  level: 'danger' | 'warning' | 'success'
+  text: string
+}
+
 export const App = () => {
+  const [messages, setMessages] = useState<Message[]>([])
+
   useEffect(() => {
     document.title = 'Finance Dashboard'
   }, [])
@@ -121,6 +157,13 @@ export const App = () => {
 
   console.log('providers parsed:', JSON.stringify(providers))
 
+  const closeToast = (message: Message) => {
+    setMessages(messages.filter(e => e !== message))
+  }
+  const addToast = (message: Message) => {
+    setMessages([...messages, message])
+  }
+
   return (
     <Root>
       <Header>
@@ -130,10 +173,18 @@ export const App = () => {
       <Main>
         <Col>
           {providers.map(_ => (
-            <ProviderSection key={_.name} provider={_}/>
+            <ProviderSection key={_.name} provider={_} onError={addToast} />
           ))}
         </Col>
       </Main>
+
+      <ToastContainer className='position-fixed end-0 bottom-0 p-2'>
+        {messages.map(_ => (
+          <Toast key={_.id} onClose={() => closeToast(_)} show={true} delay={3000} autohide bg={_.level}>
+            <Toast.Body>{_.text}</Toast.Body>
+          </Toast>
+        ))}
+      </ToastContainer>
     </Root>
   )
 }
