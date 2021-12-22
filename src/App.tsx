@@ -4,12 +4,12 @@ import Card from 'react-bootstrap/Card'
 import React, { useEffect, useRef, useState } from 'react'
 import useWebSocket from 'react-use-websocket'
 import styled from 'styled-components'
-import moment from 'moment'
 import Row from 'react-bootstrap/Row'
 import ListGroup from 'react-bootstrap/ListGroup'
 import ToastContainer from 'react-bootstrap/ToastContainer'
 import Toast from 'react-bootstrap/Toast'
 import Alert from 'react-bootstrap/Alert'
+import Badge from 'react-bootstrap/Badge'
 
 const H1 = styled.h1`
   margin: 0;
@@ -42,7 +42,7 @@ const Root = styled.div`
 `
 
 type Asset = {
-  time: Date
+  time: string
   name: string
   ticker: string
   cost: {
@@ -57,8 +57,24 @@ type Provider = {
   url: string
 }
 
-const AssetCard = ({ asset }: { asset: Asset }) => {
+type Levels = 'danger' | 'warning' | 'success'
+
+type Message = {
+  id: number
+  level: Levels
+  text: string
+}
+
+const AssetCard = ({ asset, style }: { asset: Asset; style: Levels }) => {
   const { time, name, ticker, cost } = asset
+  const recalcMsAgo = () => new Date().valueOf() - new Date(time).valueOf()
+  const [msAgo, setMsAgo] = useState(recalcMsAgo())
+
+  useEffect(() => {
+    const interval = setInterval(() => setMsAgo(recalcMsAgo()), 100)
+    return () => clearTimeout(interval)
+  })
+
   return (
     <Card as={'article'} className='h-100'>
       <Card.Header>{ticker}</Card.Header>
@@ -74,7 +90,9 @@ const AssetCard = ({ asset }: { asset: Asset }) => {
         </ListGroup.Item>
       </ListGroup>
       <Card.Footer>
-        <div className='text-muted'>{moment(time).fromNow()}</div>
+        <Badge pill bg={style}>
+          {(msAgo / 1000).toFixed(1)}s ago
+        </Badge>
       </Card.Footer>
     </Card>
   )
@@ -89,25 +107,36 @@ const ProviderSection = ({
 }) => {
   const { name, url } = provider
   const assets = useRef(new Map<string, Asset>())
+  const [reconnectStopped, setReconnectStopped] = useState(false)
+  const [reconnectAttempts, setReconnectAttempts] = useState(0)
 
   const { lastJsonMessage } = useWebSocket(url, {
-    onOpen: () => onError({ id: Math.random(), level: 'success', text: `Connected to ${provider.name}` }),
-    onError: () => onError({ id: Math.random(), level: 'danger', text: `Error connecting to ${provider.name}` }),
-    onClose: () =>
+    onOpen: () => {
+      onError({ id: Math.random(), level: 'success', text: `Connected to ${provider.name}` })
+      setReconnectStopped(false)
+      setReconnectAttempts(0)
+    },
+    onClose: () => {
       onError({
         id: Math.random(),
         level: 'warning',
         text: `Connection to ${provider.name} was closed. Trying to reconnect`
-      }),
-    onReconnectStop: numAttempts =>
-      onError({
-        id: Math.random(),
-        level: 'danger',
-        text: `Tried to reconnect ${numAttempts} times. Won't repeat`
-      }),
+      })
+      setReconnectAttempts(reconnectAttempts + 1)
+    },
+    onReconnectStop: numAttempts => {
+      if (!reconnectStopped) {
+        onError({
+          id: Math.random(),
+          level: 'danger',
+          text: `Tried to reconnect ${numAttempts} times. Won't repeat`
+        })
+      }
+      setReconnectStopped(true)
+    },
     shouldReconnect: () => true,
-    reconnectAttempts: 20,
-    reconnectInterval: 5000,
+    reconnectAttempts: 1000,
+    reconnectInterval: 10000,
     retryOnError: true
   })
   if (lastJsonMessage) {
@@ -115,6 +144,7 @@ const ProviderSection = ({
     assets.current.set(asset.ticker, asset)
   }
 
+  const status = reconnectAttempts === 0 ? 'success' : reconnectAttempts === 1 ? 'warning' : 'danger'
   return (
     <Container as={'article'} className='pt-2 pb-2'>
       <H2>{name}</H2>
@@ -126,19 +156,13 @@ const ProviderSection = ({
             .sort((a, b) => a.ticker.localeCompare(b.ticker))
             .map(_ => (
               <Col key={_.ticker} className='p-2'>
-                <AssetCard asset={_} />
+                <AssetCard asset={_} style={status} />
               </Col>
             ))}
         </Row>
       )}
     </Container>
   )
-}
-
-type Message = {
-  id: number
-  level: 'danger' | 'warning' | 'success'
-  text: string
 }
 
 export const App = () => {
@@ -183,7 +207,7 @@ export const App = () => {
 
       <ToastContainer className='position-fixed end-0 bottom-0 p-2'>
         {messages.map(_ => (
-          <Toast key={_.id} onClose={() => closeToast(_)} show={true} delay={3000} autohide bg={_.level}>
+          <Toast key={_.id} onClose={() => closeToast(_)} show={true} delay={2000} autohide bg={_.level}>
             <Toast.Body>{_.text}</Toast.Body>
           </Toast>
         ))}
