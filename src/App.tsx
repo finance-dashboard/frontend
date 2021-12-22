@@ -1,7 +1,7 @@
 import Col from 'react-bootstrap/Col'
 import Container from 'react-bootstrap/Container'
 import Card from 'react-bootstrap/Card'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { ChangeEvent, useEffect, useRef, useState } from 'react'
 import useWebSocket from 'react-use-websocket'
 import styled from 'styled-components'
 import Row from 'react-bootstrap/Row'
@@ -10,6 +10,10 @@ import ToastContainer from 'react-bootstrap/ToastContainer'
 import Toast from 'react-bootstrap/Toast'
 import Alert from 'react-bootstrap/Alert'
 import Badge from 'react-bootstrap/Badge'
+import Modal from 'react-bootstrap/Modal'
+import Button from 'react-bootstrap/Button'
+import Form from 'react-bootstrap/Form'
+import moment from 'moment/moment'
 
 const H1 = styled.h1`
   margin: 0;
@@ -65,6 +69,71 @@ type Message = {
   text: string
 }
 
+const PredictionForm = ({ show, asset, onHide }: { show: boolean; asset: Asset; onHide: () => void }) => {
+  const [from, setFrom] = useState(moment(new Date()).subtract(30, 'days'))
+  const [to, setTo] = useState(moment(new Date()))
+  const [predicted, setPredicted] = useState<number>()
+  const [error, setError] = useState('')
+
+  const onChangeFrom = (e: ChangeEvent<HTMLInputElement>) => setFrom(moment(e.target.value))
+  const onChangeTo = (e: ChangeEvent<HTMLInputElement>) => setTo(moment(e.target.value))
+
+  const onPredict = () => {
+    // TODO: Make request.
+    // setPredicted(value)
+    // setError(error)
+  }
+
+  return (
+    <Modal show={show} onHide={onHide}>
+      <Modal.Header closeButton>
+        <Modal.Title>
+          {asset.ticker}: {asset.name}
+        </Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <Form>
+          <Row>
+            <Col>
+              <Form.Group className='mb-3'>
+                <Form.Label>From</Form.Label>
+                <Form.Control type='date' value={from.format('yyyy-MM-DD')} onChange={onChangeFrom} />
+              </Form.Group>
+            </Col>
+
+            <Col>
+              <Form.Group className='mb-3'>
+                <Form.Label>To</Form.Label>
+                <Form.Control type='date' value={to.format('yyyy-MM-DD')} onChange={onChangeTo} />
+              </Form.Group>
+            </Col>
+          </Row>
+
+          {error !== '' && (
+            <Alert variant='danger' className='mt-2'>
+              Error occurred: {error}
+            </Alert>
+          )}
+
+          {predicted && (
+            <Alert variant='success' className='mt-2'>
+              Predicted cost: {predicted} {asset.cost.currency}
+            </Alert>
+          )}
+        </Form>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant='secondary' onClick={onHide}>
+          Cancel
+        </Button>
+        <Button variant='primary' onClick={onPredict}>
+          Predict
+        </Button>
+      </Modal.Footer>
+    </Modal>
+  )
+}
+
 const AssetCard = ({ asset, style }: { asset: Asset; style: Levels }) => {
   const { time, name, ticker, cost } = asset
   const recalcMsAgo = () => new Date().valueOf() - new Date(time).valueOf()
@@ -75,26 +144,42 @@ const AssetCard = ({ asset, style }: { asset: Asset; style: Levels }) => {
     return () => clearTimeout(interval)
   })
 
+  const [showDialog, setShowDialog] = useState(false)
+  const onShowDialog = () => setShowDialog(true)
+  const onCloseDialog = () => setShowDialog(false)
   return (
-    <Card as={'article'} className='h-100'>
-      <Card.Header>{ticker}</Card.Header>
-      <Card.Body>
-        <Card.Title>{name}</Card.Title>
-      </Card.Body>
-      <ListGroup variant='flush'>
-        <ListGroup.Item className='text-success'>
-          Buy: {cost.high.toFixed(2)} {cost.currency}
-        </ListGroup.Item>
-        <ListGroup.Item className='text-danger'>
-          Sell: {cost.low.toFixed(2)} {cost.currency}
-        </ListGroup.Item>
-      </ListGroup>
-      <Card.Footer>
-        <Badge pill bg={style}>
-          {(msAgo / 1000).toFixed(1)}s ago
-        </Badge>
-      </Card.Footer>
-    </Card>
+    <>
+      <Card as={'article'} className='h-100'>
+        <Card.Header>{ticker}</Card.Header>
+        <Card.Body>
+          <Card.Title>{name}</Card.Title>
+        </Card.Body>
+
+        <ListGroup variant='flush'>
+          <ListGroup.Item className='text-success'>
+            Buy: {cost.high.toFixed(2)} {cost.currency}
+          </ListGroup.Item>
+
+          <ListGroup.Item className='text-danger'>
+            Sell: {cost.low.toFixed(2)} {cost.currency}
+          </ListGroup.Item>
+
+          <ListGroup.Item className='d-grid gap-2'>
+            <Button variant='primary' size='sm' onClick={onShowDialog}>
+              Predict
+            </Button>
+          </ListGroup.Item>
+        </ListGroup>
+
+        <Card.Footer>
+          <Badge pill bg={style}>
+            {(msAgo / 1000).toFixed(1)}s ago
+          </Badge>
+        </Card.Footer>
+      </Card>
+
+      <PredictionForm show={showDialog} asset={asset} onHide={onCloseDialog} />
+    </>
   )
 }
 
