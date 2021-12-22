@@ -122,11 +122,13 @@ const ProviderSection = ({
         <Alert className='mt-2'>Loading assets...</Alert>
       ) : (
         <Row className='mt-2' xs={1} sm={2} md={4} lg={6} xl={12}>
-          {Array.from(assets.current.values()).map(_ => (
-            <Col key={_.ticker} className='p-2'>
-              <AssetCard asset={_} />
-            </Col>
-          ))}
+          {Array.from(assets.current.values())
+            .sort((a, b) => a.ticker.localeCompare(b.ticker))
+            .map(_ => (
+              <Col key={_.ticker} className='p-2'>
+                <AssetCard asset={_} />
+              </Col>
+            ))}
         </Row>
       )}
     </Container>
