@@ -9,6 +9,7 @@ import Row from 'react-bootstrap/Row'
 import ListGroup from 'react-bootstrap/ListGroup'
 import ToastContainer from 'react-bootstrap/ToastContainer'
 import Toast from 'react-bootstrap/Toast'
+import Alert from 'react-bootstrap/Alert'
 
 const H1 = styled.h1`
   margin: 0;
@@ -118,7 +119,7 @@ const ProviderSection = ({
     <Container as={'article'} className='pt-2 pb-2'>
       <H2>{name}</H2>
       {assets.current.size === 0 ? (
-        <p>Loading assets...</p>
+        <Alert className='mt-2'>Loading assets...</Alert>
       ) : (
         <Row className='mt-2' xs={1} sm={2} md={4} lg={6} xl={12}>
           {Array.from(assets.current.values()).map(_ => (
