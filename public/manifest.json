@@ -1,6 +1,6 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "Finance Dashboard",
+  "name": "Finance Dashboard with the latest info from popular exchanges",
   "icons": [
     {
       "src": "favicon.ico",
