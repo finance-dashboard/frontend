@@ -14,6 +14,7 @@ import Modal from 'react-bootstrap/Modal'
 import Button from 'react-bootstrap/Button'
 import Form from 'react-bootstrap/Form'
 import moment from 'moment/moment'
+import axios from 'axios'
 
 const H1 = styled.h1`
   margin: 0;
@@ -72,20 +73,89 @@ type Message = {
 const PredictionForm = ({ show, asset, onHide }: { show: boolean; asset: Asset; onHide: () => void }) => {
   const [from, setFrom] = useState(moment(new Date()).subtract(30, 'days'))
   const [to, setTo] = useState(moment(new Date()))
+  const [jobId, setJobId] = useState<string>('')
   const [predicted, setPredicted] = useState<number>()
   const [error, setError] = useState('')
+  const [lockButtons, setLockButtons] = useState(false)
 
   const onChangeFrom = (e: ChangeEvent<HTMLInputElement>) => setFrom(moment(e.target.value))
   const onChangeTo = (e: ChangeEvent<HTMLInputElement>) => setTo(moment(e.target.value))
 
   const onPredict = () => {
-    // TODO: Make request.
-    // setPredicted(value)
-    // setError(error)
+    setJobId('')
+    setPredicted(undefined)
+    setError('')
+    setLockButtons(true)
+
+    const data = {
+      start_date: from.toISOString(),
+      end_date: to.toISOString(),
+      code: asset.ticker
+    }
+    axios(`${process.env.REACT_APP_PREDICTION_SERVICE}/predict`, { method: 'POST', data, timeout: 3000 })
+      .then(resp => {
+        if (resp.status !== 202) {
+          throw new Error(`Prediction service returned status ${resp.status}: ${resp.statusText}`)
+        }
+
+        const job = resp.data.job_id as string
+        if (!job) {
+          throw new Error("Prediction service didn't return job id")
+        }
+
+        setJobId(job)
+      })
+      .catch(e => {
+        setError(e.toString())
+      })
+  }
+
+  useEffect(() => {
+    if (jobId) {
+      const interval = setInterval(() => {
+        setPredicted(undefined)
+        setError('')
+
+        axios(`${process.env.REACT_APP_PREDICTION_SERVICE}/check_status/${jobId}`, { timeout: 3000 })
+          .then(resp => {
+            if (resp.status !== 200) {
+              throw new Error(`Prediction service returned status ${resp.status}: ${resp.statusText}`)
+            }
+
+            const result = resp.data.result as number
+            if (!result) {
+              console.log('Prediction result not available')
+              return
+            }
+
+            setPredicted(result)
+          })
+          .catch(e => {
+            setError(e.toString())
+          })
+      }, 1000)
+
+      return () => clearInterval(interval)
+    }
+  }, [jobId])
+
+  useEffect(() => {
+    if (error !== '' || predicted) {
+      setJobId('')
+      setLockButtons(false)
+    }
+  }, [error, predicted])
+
+  const onClose = () => {
+    setJobId('')
+    setPredicted(undefined)
+    setError('')
+    setLockButtons(false)
+    onHide()
   }
 
   return (
-    <Modal show={show} onHide={onHide}>
+    <Modal show={show} onHide={onClose}>
       <Modal.Header closeButton>
         <Modal.Title>
           {asset.ticker}: {asset.name}
@@ -115,18 +185,24 @@ const PredictionForm = ({ show, asset, onHide }: { show: boolean; asset: Asset; 
             </Alert>
           )}
 
+          {jobId !== '' && (
+            <Alert variant='warning' className='mt-2'>
+              Started job {jobId}
+            </Alert>
+          )}
+
           {predicted && (
             <Alert variant='success' className='mt-2'>
-              Predicted cost: {predicted} {asset.cost.currency}
+              Predicted cost: {predicted.toFixed(2)} {asset.cost.currency}
             </Alert>
           )}
         </Form>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant='secondary' onClick={onHide}>
+        <Button variant='secondary' onClick={onClose}>
           Cancel
         </Button>
-        <Button variant='primary' onClick={onPredict}>
+        <Button variant='primary' onClick={onPredict} disabled={lockButtons}>
           Predict
         </Button>
       </Modal.Footer>
