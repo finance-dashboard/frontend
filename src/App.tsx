@@ -118,11 +118,7 @@ const PredictionForm = ({ show, asset, onHide }: { show: boolean; asset: Asset; 
 
         axios(`${process.env.REACT_APP_PREDICTION_SERVICE}/check_status/${jobId}`, { timeout: 3000 })
           .then(resp => {
-            if (resp.status !== 200) {
-              throw new Error(`Prediction service returned status ${resp.status}: ${resp.statusText}`)
-            }
-
-            const result = resp.data.result as number
+            const result = resp.data.result as number | undefined
             if (!result) {
               console.log('Prediction result not available')
               return
