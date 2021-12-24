@@ -150,6 +150,9 @@ const PredictionForm = ({ show, asset, onHide }: { show: boolean; asset: Asset; 
     onHide()
   }
 
+  const minDateString = () => moment(new Date()).subtract(1, 'year').format('yyyy-MM-DD')
+  const maxDateString = () => moment(new Date()).format('yyyy-MM-DD')
+
   return (
     <Modal show={show} onHide={onClose}>
       <Modal.Header closeButton>
@@ -163,14 +166,26 @@ const PredictionForm = ({ show, asset, onHide }: { show: boolean; asset: Asset; 
             <Col>
               <Form.Group className='mb-3'>
                 <Form.Label>From</Form.Label>
-                <Form.Control type='date' value={from.format('yyyy-MM-DD')} onChange={onChangeFrom} />
+                <Form.Control
+                  type='date'
+                  value={from.format('yyyy-MM-DD')}
+                  min={minDateString()}
+                  max={maxDateString()}
+                  onChange={onChangeFrom}
+                />
               </Form.Group>
             </Col>
 
             <Col>
               <Form.Group className='mb-3'>
                 <Form.Label>To</Form.Label>
-                <Form.Control type='date' value={to.format('yyyy-MM-DD')} onChange={onChangeTo} />
+                <Form.Control
+                  type='date'
+                  value={to.format('yyyy-MM-DD')}
+                  min={minDateString()}
+                  max={maxDateString()}
+                  onChange={onChangeTo}
+                />
               </Form.Group>
             </Col>
           </Row>
